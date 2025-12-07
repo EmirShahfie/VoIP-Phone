@@ -1,0 +1,54 @@
+#include <dt-bindings/pinctrl/esp32s3-pinctrl.h>
+
+&pinctrl {
+    i2c0_default: i2c0_default {
+        group1 {
+            pinmux = <I2C0_SDA_GPIO8>,
+                     <I2C0_SCL_GPIO9>;
+            bias-pull-up;
+            drive-open-drain;
+            output-high;
+        };
+    };
+
+    i2s0_default: i2s0_default {
+        /* BCLK, LRCLK, SDOUT (TX) */
+        group1 {
+            pinmux = <I2S0_O_BCK_GPIO38>,
+                     <I2S0_O_WS_GPIO35>,
+                     <I2S0_O_SD_GPIO36>;
+            output-enable;
+        };
+
+        /* SDIN (RX) */
+        group2 {
+            pinmux = <I2S0_I_SD_GPIO37>;
+            input-enable;
+        };
+    };
+};
+
+/* Turn on and bind I2C0 and I2S0 to these pins */
+&i2c0 {
+    status = "okay";
+    pinctrl-0 = <&i2c0_default>;
+    pinctrl-names = "default";
+
+    wm8960: wm8960@1a {
+        compatible = "wlf,wm8960";
+        reg = <0x1a>;      /* I2C address */
+        label = "WM8960";
+        status = "okay";
+    };
+};
+
+&i2s0 {
+    status = "okay";
+    pinctrl-0 = <&i2s0_default>;
+    pinctrl-names = "default";
+};
+
+/* Turn on GDMA (for I2S DMA) */
+&dma {
+    status = "okay";
+};
