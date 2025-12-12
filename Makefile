@@ -2,16 +2,14 @@ SHELL := /bin/bash
 PHONY_TARGETS := venv build flash monitor clean
 .PHONY: $(PHONY_TARGETS)
 
-.ONESHELL:
-ACTIVATE_VENV := . ../zephyrproject/.venv/bin/activate
-
-venv:
-	$(ACTIVATE_VENV)
+ACTIVATE_VENV := ../zephyrproject/.venv/bin/activate
 
 build :
+	source $(ACTIVATE_VENV) && \
 	west build -b esp32s3_devkitc/esp32s3/procpu
 
 flash :
+	source $(ACTIVATE_VENV) && \
 	west flash
 
 monitor :
