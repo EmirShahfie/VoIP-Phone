@@ -26,6 +26,14 @@
     aliases {
         audio0 = &wm8960;
     };
+
+    buttons {
+        compatible = "gpio-keys";
+        user_button: user_button {
+            gpios = <&gpio0 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "WM8960_BUTTON";
+        };
+    };
 };
 
 &i2c0 {
