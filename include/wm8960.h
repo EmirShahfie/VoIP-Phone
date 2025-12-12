@@ -282,13 +282,22 @@
 #define WM8960_JACKDETECT_LINPUT3 1
 #define WM8960_JACKDETECT_RINPUT3 2
 
+typedef enum {
+    AUDIO_MODE_HEADPHONE,
+    AUDIO_MODE_SPEAKER
+} audio_mode_t;
+
 extern const uint16_t _registerDefaults[56] ;
 extern uint16_t _registerLocalCopy[56] ;
 
+audio_mode_t get_audio_mode();
+int set_audio_mode(audio_mode_t mode);
 int wm8960_write_register(const struct i2c_dt_spec *i2c, uint8_t reg, uint16_t val);
 int wm8960_write_register_bit(const struct i2c_dt_spec *i2c_dev, uint8_t reg, uint8_t bit_pos, uint8_t bit_val);
 int wm8960_write_register_multi_bits(const struct i2c_dt_spec *i2c_dev, uint8_t reg, uint8_t bit_pos, uint8_t bit_len, uint16_t value);
 int wm8960_reset(const struct i2c_dt_spec *i2c_dev);
 int wm8960_setup(const struct i2c_dt_spec *i2c_dev);
+int wm8960_enable_speakers(const struct i2c_dt_spec *i2c);
+int wm8960_enable_headphones(const struct i2c_dt_spec *i2c);
 
 #endif /* _WM8960_H_ */

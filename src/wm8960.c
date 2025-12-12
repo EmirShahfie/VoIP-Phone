@@ -5,7 +5,8 @@
 #include <zephyr/sys/printk.h>
 #include <wm8960.h>
 
-uint16_t _registerLocalCopy[56] = {
+uint16_t _registerLocalCopy[56] = 
+{
     0x0097, // R0 (0x00)
     0x0097, // R1 (0x01)
     0x0000, // R2 (0x02)
@@ -64,7 +65,8 @@ uint16_t _registerLocalCopy[56] = {
     0x00e9, // R55 (0x37)
 };
 
-const uint16_t _registerDefaults[56] = {
+const uint16_t _registerDefaults[56] = 
+{
     0x0097, // R0 (0x00)
     0x0097, // R1 (0x01)
     0x0000, // R2 (0x02)
@@ -122,6 +124,19 @@ const uint16_t _registerDefaults[56] = {
     0x0026, // R54 (0x36)
     0x00e9, // R55 (0x37)
 };
+
+audio_mode_t audio_mode = AUDIO_MODE_HEADPHONE;
+
+audio_mode_t get_audio_mode() 
+{
+    return audio_mode;
+}
+
+int set_audio_mode(audio_mode_t mode) 
+{
+    audio_mode = mode;
+    return 0;
+}
 
 int wm8960_write_register(const struct i2c_dt_spec *i2c, uint8_t reg, uint16_t val)
 {
@@ -133,7 +148,8 @@ int wm8960_write_register(const struct i2c_dt_spec *i2c, uint8_t reg, uint16_t v
     return i2c_write_dt(i2c, buf, sizeof(buf));
 }
 
-int wm8960_write_register_bit(const struct i2c_dt_spec *i2c_dev, uint8_t reg, uint8_t bit_pos, uint8_t bit_val) {
+int wm8960_write_register_bit(const struct i2c_dt_spec *i2c_dev, uint8_t reg, uint8_t bit_pos, uint8_t bit_val) 
+{
     uint16_t reg_val = _registerLocalCopy[reg];
     if (bit_val) {
         reg_val |= (1 << bit_pos);
@@ -152,11 +168,7 @@ int wm8960_write_register_bit(const struct i2c_dt_spec *i2c_dev, uint8_t reg, ui
     return 0;
 }
 
-int wm8960_write_register_multi_bits(const struct i2c_dt_spec *i2c_dev,
-                                     uint8_t reg,
-                                     uint8_t bit_pos,
-                                     uint8_t bit_len,
-                                     uint16_t value)
+int wm8960_write_register_multi_bits(const struct i2c_dt_spec *i2c_dev, uint8_t reg, uint8_t bit_pos, uint8_t bit_len, uint16_t value)
 {
     uint16_t reg_val = _registerLocalCopy[reg];
 
@@ -173,7 +185,6 @@ int wm8960_write_register_multi_bits(const struct i2c_dt_spec *i2c_dev,
     return ret;
 }
 
-
 int wm8960_reset(const struct i2c_dt_spec *i2c_dev)
 {
     int ret = wm8960_write_register(i2c_dev, WM8960_REG_RESET, 0x0001);
@@ -189,7 +200,6 @@ int wm8960_reset(const struct i2c_dt_spec *i2c_dev)
 
     return 0;
 }
-
 
 int wm8960_setup(const struct i2c_dt_spec *i2c_dev)
 {
@@ -384,4 +394,83 @@ int wm8960_setup(const struct i2c_dt_spec *i2c_dev)
     return 0;
 }
 
+int wm8960_enable_headphones(const struct i2c_dt_spec *i2c)
+{
+    int ret;
 
+    /* Mute DAC */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_ADC_DAC_CTRL_1, 3, 1);
+    if (ret) return ret;
+
+    /* Disable speakers */
+    wm8960_write_register_bit(i2c, WM8960_REG_CLASS_D_CONTROL_1, 7, 0);
+    wm8960_write_register_bit(i2c, WM8960_REG_CLASS_D_CONTROL_1, 6, 0);
+    wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 3, 0);
+    wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 4, 0);
+
+    /* Enable headphones */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 6, 1);
+    if (ret) return ret;
+
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 5, 1);
+    if (ret) return ret;
+
+    /* Enable OUT3MIX (VMID buffer for HP ground) */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 1, 1);
+    if (ret) return ret;
+
+    /* Headphone volume (~ -10 dB) */
+    ret = wm8960_write_register(i2c, WM8960_REG_LOUT1_VOLUME, 0x0179);
+    if (ret) return ret;
+
+    ret = wm8960_write_register(i2c, WM8960_REG_ROUT1_VOLUME, 0x0179);
+    if (ret) return ret;
+
+    /* Unmute DAC */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_ADC_DAC_CTRL_1, 3, 0);
+    if (ret) return ret;
+
+    printk("Audio output: HEADPHONES\n");
+    return 0;
+}
+
+int wm8960_enable_speakers(const struct i2c_dt_spec *i2c)
+{
+    int ret;
+
+    /* Mute DAC */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_ADC_DAC_CTRL_1, 3, 1);
+    if (ret) return ret;
+
+    /* Disable headphones */
+    wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 6, 0);
+    wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 5, 0);
+    wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 1, 0);
+
+    /* Enable Class-D amps */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_CLASS_D_CONTROL_1, 7, 1);
+    if (ret) return ret;
+
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_CLASS_D_CONTROL_1, 6, 1);
+    if (ret) return ret;
+
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 3, 1);
+    if (ret) return ret;
+
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_PWR_MGMT_2, 4, 1);
+    if (ret) return ret;
+
+    /* Speaker volume (start low: ~ -20 dB) */
+    ret = wm8960_write_register(i2c, WM8960_REG_LOUT2_VOLUME, 0x0160);
+    if (ret) return ret;
+
+    ret = wm8960_write_register(i2c, WM8960_REG_ROUT2_VOLUME, 0x0160);
+    if (ret) return ret;
+
+    /* Unmute DAC */
+    ret = wm8960_write_register_bit(i2c, WM8960_REG_ADC_DAC_CTRL_1, 3, 0);
+    if (ret) return ret;
+
+    printk("Audio output: SPEAKERS\n");
+    return 0;
+}
