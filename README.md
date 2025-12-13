@@ -9,7 +9,7 @@ ESP32-S3 + ZephyrOS prototype of a VoIP-capable handset that exercises the WM896
 
 ## Hardware
 - Board: ESP32-S3 DevKitC (Zephyr target) with Zephyr overlays mapping `audio0` (WM8960) and `user_button` GPIO.
-- Audio: WM8960 codec wired on I2C (control) and I2S (audio data). Headphone and speaker outputs are both available.
+- Audio: WM8960 codec wired on I2C (control) and I2S (audio data). Headphone and speaker outputs are both available. The WM8960 Audio HAT is used for this prototype, with customised pinouts needed.
 - Input: Single GPIO button for toggling output path.
 
 ## Firmware flow (high level)
@@ -21,7 +21,8 @@ Key entry points: main control loop in [src/main.c](src/main.c), codec driver ro
 
 ## Building and flashing
 - Ensure the ESP32 Zephyr toolchain is installed and `west` is available.
-- From the project root: `west build -b esp32s3_devkitc -p auto` (add your `-p` board revision if needed).  
+- In Makefile, ensure that the Zephyr venv environment is adapted to your own.
+- From the project root: `west build -b esp32s3_devkitc`
 - Flash: `west flash`. Monitor: `west espressif monitor` or `west debug` per your setup.
 
 ## Next steps
