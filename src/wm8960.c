@@ -474,3 +474,88 @@ int wm8960_enable_speakers(const struct i2c_dt_spec *i2c)
     printk("Audio output: SPEAKERS\n");
     return 0;
 }
+
+int wm8960_enable_microphones(const struct i2c_dt_spec *i2c_dev,
+                              uint8_t micboost /* 0..3 */,
+                              uint8_t pga_vol  /* 0..63 */,
+                              uint8_t adc_dvol /* 0..255, 195 = 0dB */)
+{
+    int ret;
+
+    if (micboost > 3) micboost = 3;
+    if (pga_vol > 63) pga_vol = 63;
+
+    /* 1) Power up analog input stages + ADCs */
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 5, 1); /* AINL */
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 4, 1); /* AINR */
+    if (ret) return ret;
+
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 3, 1); /* ADCL */
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 2, 1); /* ADCR */
+    if (ret) return ret;
+
+    /*
+     * 2) Input routing based on the HAT schematic:
+     *    MIC_L -> LINPUT1, MIC_R -> RINPUT1
+     *
+     *    Use INPUT1 on the inverting PGA input (LMN1/RMN1),
+     *    and set PGA non-inverting input to VMID (clear LMP2/LMP3, RMP2/RMP3).
+     */
+
+    /* ADCL signal path: clear LMP2/LMP3 => non-inv = VMID */
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCL_SIGNAL_PATH, 7, 0); /* LMP3 */
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCL_SIGNAL_PATH, 6, 0); /* LMP2 */
+    if (ret) return ret;
+
+    /* ADCR signal path: clear RMP2/RMP3 => non-inv = VMID */
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCR_SIGNAL_PATH, 7, 0); /* RMP3 */
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCR_SIGNAL_PATH, 6, 0); /* RMP2 */
+    if (ret) return ret;
+
+    /* Connect INPUT1 to PGA inverting input */
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCL_SIGNAL_PATH, 8, 1); /* LMN1 */
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCR_SIGNAL_PATH, 8, 1); /* RMN1 */
+    if (ret) return ret;
+
+    /* Connect PGA output to boost mixer (so it can feed ADC path) */
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCL_SIGNAL_PATH, 3, 1); /* LMIC2B */
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_ADCR_SIGNAL_PATH, 3, 1); /* RMIC2B */
+    if (ret) return ret;
+
+    /* 3) Set mic boost (0..3) in ADCL/ADCR signal path bits [5:4] */
+    ret = wm8960_write_register_multi_bits(i2c_dev, WM8960_REG_ADCL_SIGNAL_PATH, 4, 2, micboost);
+    if (ret) return ret;
+    ret = wm8960_write_register_multi_bits(i2c_dev, WM8960_REG_ADCR_SIGNAL_PATH, 4, 2, micboost);
+    if (ret) return ret;
+
+    /* 4) Set PGA volumes (LINVOL/RINVOL bits [5:0]) + “volume update” bits */
+    ret = wm8960_write_register_multi_bits(i2c_dev, WM8960_REG_LEFT_INPUT_VOLUME, 0, 6, pga_vol);
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_LEFT_INPUT_VOLUME, 8, 1); /* IPVU */
+    if (ret) return ret;
+
+    ret = wm8960_write_register_multi_bits(i2c_dev, WM8960_REG_RIGHT_INPUT_VOLUME, 0, 6, pga_vol);
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_RIGHT_INPUT_VOLUME, 8, 1); /* IPVU */
+    if (ret) return ret;
+
+    /* 5) ADC digital volumes (0..255) + ADCVU bits */
+    ret = wm8960_write_register_multi_bits(i2c_dev, WM8960_REG_LEFT_ADC_VOLUME, 0, 8, adc_dvol);
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_LEFT_ADC_VOLUME, 8, 1); /* ADCVU */
+    if (ret) return ret;
+
+    ret = wm8960_write_register_multi_bits(i2c_dev, WM8960_REG_RIGHT_ADC_VOLUME, 0, 8, adc_dvol);
+    if (ret) return ret;
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_RIGHT_ADC_VOLUME, 8, 1); /* ADCVU */
+    if (ret) return ret;
+
+    return 0;
+}
+

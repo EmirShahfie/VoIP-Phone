@@ -299,5 +299,6 @@ int wm8960_reset(const struct i2c_dt_spec *i2c_dev);
 int wm8960_setup(const struct i2c_dt_spec *i2c_dev);
 int wm8960_enable_speakers(const struct i2c_dt_spec *i2c);
 int wm8960_enable_headphones(const struct i2c_dt_spec *i2c);
+int wm8960_enable_microphones(const struct i2c_dt_spec *i2c_dev, uint8_t micboost /* 0..3 */, uint8_t pga_vol  /* 0..63 */, uint8_t adc_dvol /* 0..255, 195 = 0dB */);
 
 #endif /* _WM8960_H_ */
