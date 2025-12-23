@@ -16,5 +16,6 @@ monitor :
 	sudo tio /dev/ttyACM0
 
 run : flash monitor
+
 clean :
 	rm -rf build/
