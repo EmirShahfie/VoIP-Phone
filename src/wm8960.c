@@ -3,7 +3,11 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/sys/printk.h>
+#include <zephyr/drivers/gpio.h>
 #include <wm8960.h>
+#include <audio.h>
+
+#define WM8960_BUTTON DT_NODELABEL(user_button)
 
 uint16_t _registerLocalCopy[56] = 
 {
@@ -124,19 +128,6 @@ const uint16_t _registerDefaults[56] =
     0x0026, // R54 (0x36)
     0x00e9, // R55 (0x37)
 };
-
-audio_mode_t audio_mode = AUDIO_MODE_HEADPHONE;
-
-audio_mode_t get_audio_mode() 
-{
-    return audio_mode;
-}
-
-int set_audio_mode(audio_mode_t mode) 
-{
-    audio_mode = mode;
-    return 0;
-}
 
 int wm8960_write_register(const struct i2c_dt_spec *i2c, uint8_t reg, uint16_t val)
 {
@@ -389,8 +380,6 @@ int wm8960_setup(const struct i2c_dt_spec *i2c_dev)
                                     WM8960_REG_ROUT1_VOLUME,
                                     8, 1); /* OUT1VU */
     if (ret) return ret;
-
-    printk("WM8960 setup complete.\n");
     return 0;
 }
 
@@ -488,13 +477,19 @@ int wm8960_enable_microphones(const struct i2c_dt_spec *i2c_dev,
     /* 1) Power up analog input stages + ADCs */
     ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 5, 1); /* AINL */
     if (ret) return ret;
+    
     ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 4, 1); /* AINR */
     if (ret) return ret;
 
     ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 3, 1); /* ADCL */
     if (ret) return ret;
+    
     ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 2, 1); /* ADCR */
     if (ret) return ret;
+
+    ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_PWR_MGMT_1, 1, 1); /* MICBIAS */
+    if (ret) return ret;
+    k_msleep(20);
 
     /*
      * 2) Input routing based on the HAT schematic:
@@ -556,6 +551,67 @@ int wm8960_enable_microphones(const struct i2c_dt_spec *i2c_dev,
     ret = wm8960_write_register_bit(i2c_dev, WM8960_REG_RIGHT_ADC_VOLUME, 8, 1); /* ADCVU */
     if (ret) return ret;
 
+    return 0;
+}
+
+static const struct gpio_dt_spec button =
+    GPIO_DT_SPEC_GET(WM8960_BUTTON, gpios);
+
+static struct gpio_callback button_cb_data;
+
+static struct k_work_delayable btn_work;
+
+static void btn_work_fn(struct k_work *work)
+{
+    audio_request_toggle_output();
+}
+
+static void button_pressed(const struct device *dev,
+                           struct gpio_callback *cb,
+                           uint32_t pins)
+{
+    /* just debounce-schedule */
+    k_work_reschedule(&btn_work, K_MSEC(30));
+}
+
+static int init_button(void)
+{
+    int ret;
+
+    if (!device_is_ready(button.port)) {
+        printk("Button port not ready\n");
+        return -ENODEV;
+    }
+
+    ret = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
+    if (ret) return ret;
+
+    ret = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+    if (ret) return ret;
+
+    gpio_init_callback(&button_cb_data, button_pressed, BIT(button.pin));
+    gpio_add_callback(button.port, &button_cb_data);
+
+    k_work_init_delayable(&btn_work, btn_work_fn);
+    printk("Button configured on pin %d\n", button.pin);
+    return 0;
+}
+
+/* ====== Codec public init ====== */
+int wm8960_init(const struct i2c_dt_spec *codec_i2c)
+{
+    int ret;
+
+    ret = init_button();
+    if (ret) return ret;
+
+    ret = wm8960_setup(codec_i2c);
+    if (ret) {
+        printk("WM8960 setup failed: %d\n", ret);
+        return ret;
+    }
+
+    printk("WM8960 setup complete.\n");
     return 0;
 }
 
