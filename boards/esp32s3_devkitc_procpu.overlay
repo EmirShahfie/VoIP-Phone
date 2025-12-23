@@ -11,20 +11,34 @@
         };
     };
 
+    /* I2S0 = TX + clocks */
     i2s0_audio: i2s0_audio {
-		group1 {
-			pinmux = <I2S0_MCLK_GPIO42>,
-				 <I2S0_O_WS_GPIO36>,
-				 <I2S0_O_BCK_GPIO37>,
-				 <I2S0_O_SD_GPIO38>,
-				 <I2S0_I_SD_GPIO39>;
-		};
+        group1 {
+            pinmux = <I2S0_MCLK_GPIO42>,
+                     <I2S0_O_WS_GPIO36>,
+                     <I2S0_O_BCK_GPIO37>,
+                     <I2S0_O_SD_GPIO38>;
+        };
+    };
+
+    /* I2S1 = RX (share WS/BCK wires, but as INPUTS) */
+    i2s1_audio: i2s1_audio {
+        group1 {
+            /* These macros must exist in esp32s3-pinctrl.h */
+            pinmux = <I2S1_I_WS_GPIO36>,
+                     <I2S1_I_BCK_GPIO37>,
+                     <I2S1_I_SD_GPIO39>;
+        };
     };
 };
 
-/{
+/ {
     aliases {
-        audio0 = &wm8960;
+        audio0  = &wm8960;
+
+        /* Add these so your C code can do DT_ALIAS(i2s-tx) / DT_ALIAS(i2s-rx) */
+        i2s-tx = &i2s0;
+        i2s-rx = &i2s1;
     };
 
     buttons {
@@ -38,9 +52,9 @@
 
 &i2c0 {
     status = "okay";
-	clock-frequency = <I2C_BITRATE_STANDARD>;
-	pinctrl-0 = <&i2c0_audio>;
-	pinctrl-names = "default";
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+    pinctrl-0 = <&i2c0_audio>;
+    pinctrl-names = "default";
 
     wm8960: wm8960@1a {
         compatible = "wlf,wm8960";
@@ -50,9 +64,17 @@
     };
 };
 
+/* TX controller */
 &i2s0 {
     status = "okay";
     pinctrl-0 = <&i2s0_audio>;
+    pinctrl-names = "default";
+};
+
+/* RX controller */
+&i2s1 {
+    status = "okay";
+    pinctrl-0 = <&i2s1_audio>;
     pinctrl-names = "default";
 };
 
