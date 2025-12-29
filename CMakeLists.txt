@@ -8,4 +8,5 @@ target_include_directories(app PRIVATE include)
 target_sources(app PRIVATE 
                 src/main.c
                 src/wm8960.c
-                src/audio.c)
+                src/audio.c
+                src/network.c)

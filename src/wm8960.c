@@ -563,7 +563,7 @@ static struct k_work_delayable btn_work;
 
 static void btn_work_fn(struct k_work *work)
 {
-    audio_request_toggle_output();
+    
 }
 
 static void button_pressed(const struct device *dev,

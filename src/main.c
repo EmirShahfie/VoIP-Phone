@@ -6,6 +6,7 @@
 
 #include <audio.h>
 #include <wm8960.h>
+#include <network.h>
 
 #define WM8960_NODE DT_ALIAS(audio0)
 #define I2S_TX_NODE DT_ALIAS(i2s_tx)
@@ -28,6 +29,20 @@ int main(void)
         return -1;
     }
 
+    wifi_init();
+
+    ret = wifi_connect();
+    if (ret) {
+        printk("WiFi connect failed: %d\n", ret);
+        return ret;
+    }
+
+    ret = udp_init();
+    if (ret) {
+        printk("UDP init failed: %d\n", ret);
+        return ret;
+    }
+
     ret = wm8960_init(&codec_i2c);
     if (ret) {
         printk("wm8960_init failed: %d\n", ret);
@@ -40,7 +55,6 @@ int main(void)
         printk("enable speakers failed: %d\n", ret);
         return ret;
     }
-    audio_set_mode(AUDIO_MODE_SPEAKER);
 
     ret = wm8960_enable_microphones(&codec_i2c,
                     2,      /* micboost: 0..3 */
@@ -51,23 +65,22 @@ int main(void)
         printk("enable microphones failed: %d\n", ret);
         return ret;
     }
-
-    audio_init(i2s_tx, i2s_rx, &codec_i2c);
-    if (ret) {
-        printk("audio_init failed: %d\n", ret);
-        return ret;
-    }
-
-    ret = audio_start();
-    if (ret) {
-        printk("audio_start failed: %d\n", ret);
-        return ret;
-    }
     
-    printk("System ready. Press button to toggle output.\n");
+    struct i2s_config i2s_cfg = {
+        .word_size = SAMPLE_BIT_WIDTH,
+        .channels = NUMBER_OF_CHANNELS,
+        .format = I2S_FMT_DATA_FORMAT_I2S | I2S_FMT_BIT_CLK_INV,
+        .options = I2S_OPT_FRAME_CLK_MASTER | I2S_OPT_BIT_CLK_MASTER,
+        .frame_clk_freq = SAMPLE_FREQUENCY,
+        .mem_slab = NULL, // Will be set in audio.c
+        .block_size = BLOCK_SIZE,
+        .timeout = TIMEOUT,
+    };
+
+    start_audio_thread(i2s_tx, i2s_rx, &i2s_cfg, &i2s_cfg);
 
     /* Nothing else to do; audio thread runs forever */
     while (1) {
-        k_sleep(K_SECONDS(1));
+        k_sleep(K_FOREVER);
     }
 }
